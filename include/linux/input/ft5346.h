@@ -302,7 +302,7 @@ struct ft5x06_ts_data
 #define FTS_PROC_APK_DEBUG 1
 #define CTP_CHARGER_DETECT 0
 #define CTP_PROC_INTERFACE 1
-#define WT_ADD_CTP_INFO   1
+#define WT_ADD_CTP_INFO   0
 
 /*Gesture*/
 #define WT_CTP_GESTURE_SUPPORT   1

@@ -6194,8 +6194,8 @@ static int mxt_probe(struct i2c_client *client,
 {
 	struct mxt_platform_data *pdata;
 	struct mxt_data *data;
-	char color[HARDWARE_MAX_ITEM_LONGTH];
-	char ic_maker[HARDWARE_MAX_ITEM_LONGTH];
+//	char color[HARDWARE_MAX_ITEM_LONGTH];
+//	char ic_maker[HARDWARE_MAX_ITEM_LONGTH];
 	int error;
 
 	CTP_DEBUG("step 1: parse dts. ");

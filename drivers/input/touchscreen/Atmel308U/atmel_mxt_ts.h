@@ -29,7 +29,7 @@
 
 #define MXT_KEYARRAY_MAX_KEYS		32
 #define CTP_PROC_INTERFACE                    1
-#define WT_ADD_CTP_INFO                           1
+#define WT_ADD_CTP_INFO                           0
 
 /*TP Color*/
 #define TP_White      0x31

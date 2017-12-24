@@ -92,7 +92,7 @@
 #define GTP_GLOVE_SUPPORT_ONOFF  'Y'    // 'N' is off
 #endif
 
-#define WT_ADD_CTP_INFO	1
+#define WT_ADD_CTP_INFO	0
 
 #define GTP_DEBUG_ON          0//remove TP debug log by wangxun
 #define GTP_DEBUG_ARRAY_ON    0

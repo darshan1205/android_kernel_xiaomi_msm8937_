@@ -1830,7 +1830,7 @@ static s32 gtp_init_panel(struct goodix_ts_data *ts)
         return -1;
     }
     GTP_INFO("Sensor_ID: %d", sensor_id);
-    tp_sensor_id = sensor_id;
+    //tp_sensor_id = sensor_id;
 
 	/* parse config data*/
 //Modify, wangdongbo.wt_20160527
