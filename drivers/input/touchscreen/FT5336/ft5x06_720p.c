@@ -34,6 +34,17 @@
 #include <linux/fs.h>
 #include <asm/uaccess.h>
 
+#if WT_CTP_GESTURE_SUPPORT
+#define FTS_GESTRUE_POINTS 				255
+#define FTS_GESTRUE_POINTS_HEADER 		8
+
+static void Ctp_Gesture_Fucntion_Proc_File(void);
+static char gtp_gesture_value;
+static char gtp_gesture_onoff = '0';
+unsigned short coordinate_x[150] = {0};
+unsigned short coordinate_y[150] = {0};
+#endif
+
 #if CTP_CHARGER_DETECT
 #include <linux/power_supply.h>
 #endif
@@ -58,6 +69,7 @@ u8 TP_Maker, LCD_Maker;
 #define TPD_MAX_POINTS_2	2
 #define AUTO_CLB_NEED   1
 #define AUTO_CLB_NONEED	 0
+struct Upgrade_Info fts_updateinfo_curr;
 
 #define FT_STORE_TS_INFO(buf, id, name, max_tch, group_id, fw_vkey_support, \
 			fw_name, fw_maj, fw_min, fw_sub_min) \
@@ -76,6 +88,7 @@ u8 TP_Maker, LCD_Maker;
 				fw_sub_min)
 
 static struct i2c_client *update_client;
+static struct i2c_client *gesture_client;
 
 #if CTP_CHARGER_DETECT
 extern int power_supply_get_battery_charge_state(struct power_supply *psy);
@@ -160,6 +173,11 @@ static int ft5x0x_write_reg(struct i2c_client *client, u8 addr, const u8 val)
 	return ft5x06_i2c_write(client, buf, sizeof(buf));
 }
 
+static int ft5x0x_read_reg(struct i2c_client *client, u8 addr, u8 *val)
+{
+	return ft5x06_i2c_read(client, &addr, 1, val, 1);
+}
+
 static void ft5x06_update_fw_vendor_id(struct ft5x06_ts_data *data)
 {
 	struct i2c_client *client = data->client;
@@ -172,13 +190,56 @@ static void ft5x06_update_fw_vendor_id(struct ft5x06_ts_data *data)
 		dev_err(&client->dev, "fw vendor id read failed");
 }
 
+#if WT_CTP_GESTURE_SUPPORT
+static void check_gesture(int gesture_id, struct input_dev *ip_dev)
+{
+
+	switch (gesture_id) {
+	case 0x24:
+		gtp_gesture_value = 'K';
+		input_report_key(ip_dev, KEYCODE_WAKEUP, 1);
+		input_sync(ip_dev);
+		input_report_key(ip_dev, KEYCODE_WAKEUP, 0);
+		input_sync(ip_dev);
+		break;
+	default:
+		break;
+	}
+}
+static int fts_read_Gestruedata(struct input_dev *ip_dev)
+{
+	unsigned char buf[FTS_GESTRUE_POINTS * 3] = { 0 };
+	int ret = -1;
+	//int i = 0;
+	int gestrue_id = 0;
+	short pointnum = 0;
+		buf[0] = 0xd3;
+
+	pointnum = 0;
+	ret = ft5x06_i2c_read(gesture_client, buf, 1, buf, FTS_GESTRUE_POINTS_HEADER);
+	if (ret < 0) {
+		CTP_ERROR("%s read touchdata failed.\n", __func__);
+		return ret;
+	}
+
+	if (0x24 == buf[0]) {
+		gestrue_id = 0x24;
+		check_gesture(gestrue_id, ip_dev);
+		CTP_ERROR("tpd %d check_gesture gestrue_id.\n", gestrue_id);
+		return -EPERM;
+	}
+
+	return -EPERM;
+}
+#endif
+
 static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 {
 	struct ft5x06_ts_data *data = dev_id;
 	struct input_dev *ip_dev;
-	int rc, i;
+	int rc, i, ret;
 	u32 id, x, y, status, num_touches;
-	u8 reg = 0x00, *buf;
+	u8 reg = 0x00, *buf, state;
 	bool update_input = false;
 
 	if (!data) {
@@ -211,6 +272,20 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 		dev_err(&data->client->dev, "%s: read data fail\n", __func__);
 		return IRQ_HANDLED;
 	}
+
+#if WT_CTP_GESTURE_SUPPORT
+			if (gtp_gesture_onoff == '1') {
+				ret = ft5x0x_read_reg(gesture_client, 0xd0, &state);
+				CTP_DEBUG("in event gesture:%d\n", state);
+				if (ret < 0) {
+					CTP_ERROR("read value fail");
+				}
+				if (state == 1) {
+					fts_read_Gestruedata(ip_dev);
+					return IRQ_HANDLED;
+				}
+			}
+#endif
 
 	for (i = 0; i < data->pdata->num_max_touches; i++) {
 		id = (buf[FT_TOUCH_ID_POS + FT_ONE_TCH_LEN * i]) >> 4;
@@ -435,6 +510,23 @@ static int ft5x06_ts_suspend(struct device *dev)
 		return 0;
 	}
 
+#if WT_CTP_GESTURE_SUPPORT
+	if (gtp_gesture_onoff == '1') {
+		ft5x0x_write_reg(gesture_client, 0xd0, 0x01);
+		if (fts_updateinfo_curr.CHIP_ID == 0x11 || fts_updateinfo_curr.CHIP_ID == 0x14) {
+			ft5x0x_write_reg(gesture_client, 0xd1, 0xff);
+			ft5x0x_write_reg(gesture_client, 0xd2, 0xff);
+			ft5x0x_write_reg(gesture_client, 0xd5, 0xff);
+			ft5x0x_write_reg(gesture_client, 0xd6, 0xff);
+			ft5x0x_write_reg(gesture_client, 0xd7, 0xff);
+			ft5x0x_write_reg(gesture_client, 0xd8, 0xff);
+		}
+		enable_irq_wake(data->client->irq);
+		CTP_DEBUG("in suspend gesture\n");
+		return 0;
+	}
+#endif
+
 	disable_irq(data->client->irq);
 
 	/* release all touches */
@@ -493,6 +585,14 @@ static int ft5x06_ts_resume(struct device *dev)
 		return 0;
 	}
 
+
+#if WT_CTP_GESTURE_SUPPORT
+		printk("Resume Gesture TP.\n");
+	if (gtp_gesture_onoff == '1') {
+		ft5x0x_write_reg(gesture_client, 0xD0, 0x00);
+		printk("Resume Gesture TP Done.\n");
+	}
+#endif
 
 	if (data->pdata->power_on) {
 		err = data->pdata->power_on(true);
@@ -859,6 +959,105 @@ static int ft5x06_proc_init(struct ft5x06_ts_data *data)
        return ret;
 }
 
+
+#if WT_CTP_GESTURE_SUPPORT
+static ssize_t proc_gesture_data_read(struct file *file, char __user *buffer, size_t count, loff_t *ppos)
+{
+	int num = 0;
+	if (*ppos)
+		return 0;
+	printk("proc_gesture_data_read=%d\n", gtp_gesture_value);
+	num =  sprintf(buffer, "%c\n", gtp_gesture_value);
+	*ppos += num;
+	return num;
+}
+
+
+static ssize_t proc_gesture_data_write(struct file *file, const char __user *buffer, size_t count, loff_t *ppos)
+{
+	sscanf(buffer, "%c", &gtp_gesture_value);
+	return count;
+}
+
+static ssize_t proc_gesture_onoff_read(struct file *file, char __user *page, size_t count, loff_t *ppos)
+{
+	int num;
+	if (*ppos)
+		return 0;
+
+	num = sprintf(page, "%c\n", gtp_gesture_onoff);
+	*ppos += num;
+	 return num;
+
+}
+
+static ssize_t proc_gesture_onoff_write(struct file *file,  const char __user *buffer, size_t count, loff_t *ppos)
+{
+	sscanf(buffer, "%c", &gtp_gesture_onoff);
+	return count;
+}
+
+static const struct file_operations gt_gesture_var_proc_fops = {
+	.write = proc_gesture_data_write,
+	.read = proc_gesture_data_read,
+	.open = simple_open,
+	.owner = THIS_MODULE,
+};
+
+static const struct file_operations gt_gesture_onoff_proc_fops = {
+	.write = proc_gesture_onoff_write,
+	.read = proc_gesture_onoff_read,
+	.open = simple_open,
+	.owner = THIS_MODULE,
+};
+
+void Ctp_Gesture_Fucntion_Proc_File(void)
+{
+	struct proc_dir_entry *ctp_device_proc = NULL;
+	struct proc_dir_entry *ctp_gesture_type_proc = NULL;
+	struct proc_dir_entry *ctp_gesture_onoff_proc = NULL;
+
+	ctp_device_proc = proc_mkdir("gesture", NULL);
+
+	ctp_gesture_type_proc = proc_create("data", 0660, ctp_device_proc, &gt_gesture_var_proc_fops);
+	if (ctp_gesture_type_proc == NULL) {
+		CTP_DEBUG("ctp_gesture_var_proc create failed\n");
+	}
+
+	ctp_gesture_onoff_proc = proc_create("onoff", 0660, ctp_device_proc, &gt_gesture_onoff_proc_fops);
+	if (ctp_gesture_onoff_proc == NULL) {
+		CTP_DEBUG("ctp_gesture_onoff_proc create failed\n");
+	}
+
+}
+
+#endif
+
+static int fts_input_event(struct input_dev *dev,
+		unsigned int type, unsigned int code, int value)
+{
+	char buffer[16];
+
+	if (type == EV_SYN && code == SYN_CONFIG) {
+		sprintf(buffer, "%d", value);
+
+		CTP_INFO("FTS:Gesture on/off : %d", value);
+		if (value >= MXT_INPUT_EVENT_START && value <= MXT_INPUT_EVENT_END) {
+			if (value == MXT_INPUT_EVENT_WAKUP_MODE_ON) {
+				gtp_gesture_onoff = '1';
+			} else if (value == MXT_INPUT_EVENT_WAKUP_MODE_OFF) {
+				gtp_gesture_onoff = '0';
+			} else {
+				gtp_gesture_onoff = '0';
+				CTP_ERROR("Failed Open/Close Gesture Function!\n");
+				return -ENOMEM;
+			}
+		}
+	}
+
+	return 0;
+}
+
 static int ft5x06_ts_probe(struct i2c_client *client,
 						   const struct i2c_device_id *id)
 {
@@ -934,7 +1133,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	input_dev->name = "ft5x06_720p";
 	input_dev->id.bustype = BUS_I2C;
 	input_dev->dev.parent = &client->dev;
-
+        input_dev->event = fts_input_event;
 	input_set_drvdata(input_dev, data);
 	i2c_set_clientdata(client, data);
 
@@ -942,6 +1141,14 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	__set_bit(EV_ABS, input_dev->evbit);
 	__set_bit(BTN_TOUCH, input_dev->keybit);
 	__set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
+
+
+#if WT_CTP_GESTURE_SUPPORT
+		input_set_capability(input_dev, EV_KEY, KEY_POWER);
+		input_set_capability(input_dev, EV_KEY, KEYCODE_WAKEUP);
+
+		__set_bit(KEYCODE_WAKEUP, input_dev->keybit);
+#endif
 
 	input_mt_init_slots(input_dev, pdata->num_max_touches, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_X, pdata->x_min,
@@ -1092,6 +1299,10 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	data->early_suspend.suspend = ft5x06_ts_early_suspend;
 	data->early_suspend.resume = ft5x06_ts_late_resume;
 	register_early_suspend(&data->early_suspend);
+#endif
+
+#if WT_CTP_GESTURE_SUPPORT
+	Ctp_Gesture_Fucntion_Proc_File();
 #endif
 
 #if CTP_CHARGER_DETECT
