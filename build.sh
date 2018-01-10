@@ -54,7 +54,7 @@ function make_modules {
                 mkdir $MODULES_DIR
 		find $KERNEL_DIR -name '*.ko' -exec cp {} $MODULES_DIR/ \;
 		cd $MODULES_DIR
-        $STRIP --strip-unneeded *.ko && mkdir pronto && mv wlan.ko pronto_wlan.ko && mv pronto_wlan.ko pronto
+        $STRIP --strip-unneeded *.ko && mkdir pronto && cp -a wlan.ko pronto_wlan.ko && mv pronto_wlan.ko pronto
         cd $KERNEL_DIR
 }
 
@@ -83,7 +83,7 @@ DATE_START=$(date +"%s")
 echo -e "${restore}"
 
 		make_kernel
-                #make_modules
+                make_modules
 		make_zip
 
 echo -e "${green}"
