@@ -76,7 +76,7 @@ DATE_START=$(date +"%s")
 		cd $ANYKERNEL_DIR
 		rm -rf zImage
                 cd $KERNEL_DIR
-		make clean && make mrproper
+#		make clean && make mrproper
 		echo "cleaned directory"
 		echo "Compiling DSM-Kernel Using AOSP-4.9 Toolchain"
 

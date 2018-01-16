@@ -157,7 +157,7 @@ dtb-$(CONFIG_ARCH_MDMCALIFORNIUM) += mdmcalifornium-sim.dtb \
 	mdmcalifornium-v1.1-nand-dualwifi-mtp.dtb
 
 ifeq ($(CONFIG_MACH_XIAOMI_MSM8937),y)
-dtb-$(CONFIG_MACH_XIAOMI_LAND) += msm8937-pmi8950-qrd-wt88537_64.dtb
+dtb-$(CONFIG_MACH_XIAOMI_LAND) += msm8937-pmi8950-qrd-sku1-land.dtb
 else
 dtb-$(CONFIG_ARCH_MSM8937) += msm8937-rumi.dtb \
 	msm8937-pmi8950-cdp.dtb \
