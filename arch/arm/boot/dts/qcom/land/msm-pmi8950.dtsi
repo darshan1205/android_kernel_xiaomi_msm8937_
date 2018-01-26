@@ -1,0 +1,46 @@
+#include "../msm-pmi8950.dtsi"
+
+&spmi_bus {
+
+       qcom,pmi8950@2 {
+
+               pmi8950_charger: qcom,qpnp-smbcharger {
+                       /delete-property/ qcom,float-voltage-mv;
+                       /delete-property/ qcom,parallel-usb-min-current-ma;
+                       /delete-property/ qcom,parallel-usb-9v-min-current-ma;
+                       /delete-property/ qcom,parallel-allowed-lowering-ma;
+                       /delete-property/ qcom,autoadjust-vfloat;
+                       qcom,float-voltage-mv = <4400>;
+                       qcom,thermal-mitigation = <2000 1500 1200 800 800>;
+               };
+
+               flash_led: qcom,leds@d300 {
+
+                          pmi8950_flash0: qcom,flash_0 {
+                                  qcom,current = <595>;
+               };
+
+                          pmi8950_flash1: qcom,flash_1 {
+                                  qcom,current = <595>;
+               };
+
+                          pmi8950_torch0: qcom,torch_0 {
+                                  qcom,current = <120>;
+               };
+
+                          pmi8950_torch1: qcom,torch_1 {
+                                  qcom,current = <120>;
+               };
+
+			  pmi8950_torch2: qcom,torch_2 {
+				  label = "torch";
+				  qcom,led-name = "flashlight";
+				  qcom,default-led-trigger = "torch2_trigger";
+				  qcom,max-current = <200>;
+				  qcom,id = <1>;
+				  qcom,current = <120>;
+               };
+
+       };
+
+  };
